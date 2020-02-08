@@ -434,8 +434,8 @@ void CPU::init_sdl() {
     }
     // Create window
     window = SDL_CreateWindow("CHIP 8 emulator", SDL_WINDOWPOS_UNDEFINED,
-                              SDL_WINDOWPOS_UNDEFINED, WIDTH * 3, HEIGHT * 3,
-                              SDL_WINDOW_SHOWN);
+                              SDL_WINDOWPOS_UNDEFINED, WIDTH * BLOCK_LONG,
+                              HEIGHT * BLOCK_LONG, SDL_WINDOW_SHOWN);
     if (window == nullptr) {
         printf("[ERROR] Window could not be created! SDL_Error: %s\n",
                SDL_GetError());
@@ -450,10 +450,10 @@ void CPU::init_sdl() {
         exit(3);
     }
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-                                SDL_TEXTUREACCESS_STATIC, SCREEN_WIDTH,
-                                SCREEN_HEIGHT);
+                                SDL_TEXTUREACCESS_STATIC, WIDTH * BLOCK_LONG,
+                                HEIGHT * BLOCK_LONG);
 
-    buffer.resize(HEIGHT * WIDTH * 9, 0x00000000);
+    buffer.resize(HEIGHT * WIDTH * BLOCK_LONG * BLOCK_LONG, 0x00FFFFFF);
     refresh();
 }
 
@@ -466,7 +466,7 @@ void CPU::load_file() {
     // load game file
     // TODO : can do better
     std::streampos file_size;
-    std::ifstream file("roms/PONG", std::ios::binary);
+    std::ifstream file("roms/PONG2", std::ios::binary);
 
     file.seekg(0, std::ios::end);
     file_size = file.tellg();
@@ -493,7 +493,7 @@ void CPU::clear_graph() {
 
 void CPU::refresh() {
     SDL_UpdateTexture(texture, nullptr, std::data(buffer),
-                      WIDTH*3 * sizeof(uint32_t));
+                      WIDTH * BLOCK_LONG * sizeof(uint32_t));
     // clear the screen
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, NULL, NULL);

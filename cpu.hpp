@@ -54,7 +54,7 @@ class CPU {
     const uint32_t SCREEN_WIDTH = 640;
     const uint32_t SCREEN_HEIGHT = 310;
 
-    const uint32_t BLOCK_LONG = 3;
+    const uint32_t BLOCK_LONG = 10;
 
     // The window we'll be rendering to
     SDL_Window* window = nullptr;

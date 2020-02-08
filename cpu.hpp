@@ -16,6 +16,7 @@ class CPU {
     uint8_t memory[4096];          // 4KB
     uint8_t reg[16];               // register
     uint8_t graph[HEIGHT][WIDTH];  // draw
+    uint8_t key[16];               // keyboard
     uint8_t sp;                    // stack pointer
     uint8_t I;                     // index pointer
     uint8_t delay_timer;

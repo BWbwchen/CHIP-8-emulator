@@ -3,7 +3,17 @@
 // public
 CPU::CPU() {
     init();
+    init_sdl();
     load_file();
+}
+
+void CPU::close() {
+    // Destroy window
+    SDL_DestroyWindow(window);
+
+    // Quit SDL subsystems
+    SDL_Quit();
+    exit(0);
 }
 
 void CPU::clock_cycle() {
@@ -29,7 +39,6 @@ void CPU::clock_cycle() {
         case 0x1000: {
             // JP addr
             pc = opcode & 0x0FFF;
-            pc += 2;
             break;
         }
         case 0x2000: {
@@ -234,20 +243,20 @@ void CPU::clock_cycle() {
                     }
                 }
             }
-            // TODO : draw flag maybe
+            draw_flag = true;
             pc += 2;
             break;
         }
         case 0xE000: {
             auto x = (opcode & 0x0F00) >> 8;
-            if (opcode & 0x000F == 0xE) {
+            if ((opcode & 0x00FF) == 0x9E) {
                 // Ex9E - SKP Vx
                 if (key[x] == 1) {
                     pc += 4;
                 } else {
                     pc += 2;
                 }
-            } else if (opcode & 0x000F == 0x1) {
+            } else if ((opcode & 0x00FF) == 0xA1) {
                 // ExA1 - SKNP Vx
                 if (key[x] != 1) {
                     pc += 4;
@@ -309,16 +318,16 @@ void CPU::clock_cycle() {
                 }
                 case 0x33: {
                     // Fx33 - LD B, Vx
-                    memory[I] = reg[x]/100;
-                    memory[I+1] = (reg[x]/10)%10;
-                    memory[I+2] = reg[x]%10;
+                    memory[I] = reg[x] / 100;
+                    memory[I + 1] = (reg[x] / 10) % 10;
+                    memory[I + 2] = reg[x] % 10;
                     pc += 2;
                     break;
                 }
                 case 0x55: {
                     // Fx55 - LD [I], Vx
                     for (int i = 0; i <= x; ++i) {
-                        memory[I+i] = reg[i];
+                        memory[I + i] = reg[i];
                     }
                     pc += 2;
                     break;
@@ -326,7 +335,7 @@ void CPU::clock_cycle() {
                 case 0x65: {
                     // Fx65 - LD Vx, [I]
                     for (int i = 0; i <= x; ++i) {
-                        reg[i] = memory[I+i];
+                        reg[i] = memory[I + i];
                     }
                     pc += 2;
                     break;
@@ -345,12 +354,51 @@ void CPU::clock_cycle() {
             break;
         }
     }
+    if (delay_timer > 0) delay_timer--;
     printf("[INFO] command %04X\n", opcode);
 }
 
-bool CPU::get_draw_flag() {}
+bool CPU::get_draw_flag() {
+    if (draw_flag) {
+        draw_flag = false;
+        return true;
+    }
+    return false;
+}
 
-void CPU::draw() {}
+void CPU::draw() {
+    // update the buffer
+    for (int h = 0; h < HEIGHT; ++h) {
+        for (int w = 0; w < WIDTH; ++w) {
+            // sub-block
+            for (int i = 0; i < BLOCK_LONG; ++i) {
+                for (int j = 0; j < BLOCK_LONG; ++j) {
+                    buffer[h * BLOCK_LONG * WIDTH + w * BLOCK_LONG + i * WIDTH +
+                           j] = (graph[h][w]) ? 0x00FFFFFF : 0x00000000;
+                }
+            }
+        }
+    }
+    // draw on screen
+    refresh();
+    printf("[INFO] draw\n");
+}
+
+void CPU::deal_keyboard() {
+    while (SDL_PollEvent(&e)) {
+        if (e.type == SDL_QUIT) {
+            close();
+            return;
+        } else if (e.type == SDL_KEYDOWN) {
+            switch (e.key.keysym.sym) {
+                default: {
+                    printf("[DEBUG] key press %d\n", e.key.keysym.sym);
+                    break;
+                }
+            }
+        }
+    }
+}
 
 // private
 
@@ -373,6 +421,40 @@ void CPU::init() {
 
     // random
     srand(time(NULL));
+
+    draw_flag = false;
+}
+
+void CPU::init_sdl() {
+    // Initialize SDL
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        printf("[ERROR] SDL could not initialize! SDL_Error: %s\n",
+               SDL_GetError());
+        exit(3);
+    }
+    // Create window
+    window = SDL_CreateWindow("CHIP 8 emulator", SDL_WINDOWPOS_UNDEFINED,
+                              SDL_WINDOWPOS_UNDEFINED, WIDTH * 3, HEIGHT * 3,
+                              SDL_WINDOW_SHOWN);
+    if (window == nullptr) {
+        printf("[ERROR] Window could not be created! SDL_Error: %s\n",
+               SDL_GetError());
+        exit(3);
+    }
+    renderer = SDL_CreateRenderer(
+        window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (renderer == nullptr) {
+        SDL_DestroyWindow(window);
+        printf("[ERROR] SDL_CreateRenderer Error: %s\n", SDL_GetError());
+        SDL_Quit();
+        exit(3);
+    }
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                                SDL_TEXTUREACCESS_STATIC, SCREEN_WIDTH,
+                                SCREEN_HEIGHT);
+
+    buffer.resize(HEIGHT * WIDTH * 9, 0x00000000);
+    refresh();
 }
 
 void CPU::load_file() {
@@ -384,7 +466,7 @@ void CPU::load_file() {
     // load game file
     // TODO : can do better
     std::streampos file_size;
-    std::ifstream file("roms/PONG2", std::ios::binary);
+    std::ifstream file("roms/PONG", std::ios::binary);
 
     file.seekg(0, std::ios::end);
     file_size = file.tellg();
@@ -407,4 +489,13 @@ void CPU::clear_graph() {
             graph[i][j] = 0;
         }
     }
+}
+
+void CPU::refresh() {
+    SDL_UpdateTexture(texture, nullptr, std::data(buffer),
+                      WIDTH*3 * sizeof(uint32_t));
+    // clear the screen
+    SDL_RenderClear(renderer);
+    SDL_RenderCopy(renderer, texture, NULL, NULL);
+    SDL_RenderPresent(renderer);
 }

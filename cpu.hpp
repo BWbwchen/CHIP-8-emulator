@@ -8,11 +8,14 @@
 #include <iostream>
 #include <vector>
 
+#include <SDL2/SDL.h>
+
 #define WIDTH 64
 #define HEIGHT 32
 
 class CPU {
    private:
+    // cpu
     uint8_t memory[4096];          // 4KB
     uint8_t reg[16];               // register
     uint8_t graph[HEIGHT][WIDTH];  // draw
@@ -25,6 +28,8 @@ class CPU {
     uint16_t pc;         // program counter
     uint16_t stack[16];  // stack
     uint16_t opcode;
+
+    bool draw_flag;
 
     const uint8_t font_set[80] = {
         0xF0, 0x90, 0x90, 0x90, 0xF0,  // 0
@@ -45,14 +50,41 @@ class CPU {
         0xF0, 0x80, 0xF0, 0x80, 0x80   // F
     };
 
+    // draw thing
+    const uint32_t SCREEN_WIDTH = 640;
+    const uint32_t SCREEN_HEIGHT = 310;
+
+    const uint32_t BLOCK_LONG = 3;
+
+    // The window we'll be rendering to
+    SDL_Window* window = nullptr;
+
+    // The surface contained by the window
+    SDL_Surface* screenSurface = nullptr;
+    
+    // The render 
+    SDL_Renderer *renderer ;
+
+    // The texture
+    SDL_Texture * texture;
+
+    std::vector<uint32_t> buffer;
+
+    // event
+    SDL_Event e;
+
    public:
     CPU();
     void clock_cycle();
     bool get_draw_flag();
     void draw();
+    void close();
+    void deal_keyboard();
 
    private:
     void init();
+    void init_sdl();
     void load_file();
     void clear_graph();
+    void refresh();
 };

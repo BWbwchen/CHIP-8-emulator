@@ -1,5 +1,6 @@
 #pragma once
 
+#include <SDL2/SDL.h>
 #include <stdlib.h>  // srand, rand
 #include <time.h>    // time
 
@@ -8,20 +9,18 @@
 #include <iostream>
 #include <vector>
 
-#include <SDL2/SDL.h>
-
 #define WIDTH 64
 #define HEIGHT 32
 
 class CPU {
    private:
     // cpu
-    uint8_t memory[4096];          // 4KB
-    uint8_t reg[16];               // register
-    uint8_t graph[HEIGHT][WIDTH];  // draw
-    uint8_t key[16];               // keyboard
-    uint8_t sp;                    // stack pointer
-    uint8_t I;                     // index pointer
+    uint8_t memory[4096];       // 4KB
+    uint8_t reg[16];            // register
+    bool graph[HEIGHT][WIDTH];  // draw
+    uint8_t key[16];            // keyboard
+    uint8_t sp;                 // stack pointer
+    uint8_t I;                  // index pointer
     uint8_t delay_timer;
     uint8_t sound_timer;
 
@@ -51,22 +50,21 @@ class CPU {
     };
 
     // draw thing
-    const uint32_t SCREEN_WIDTH = 640;
-    const uint32_t SCREEN_HEIGHT = 310;
-
-    const uint32_t BLOCK_LONG = 10;
+    const uint32_t BLOCK_LONG = 20;
+    const uint32_t SCREEN_WIDTH = WIDTH * BLOCK_LONG;
+    const uint32_t SCREEN_HEIGHT = HEIGHT * BLOCK_LONG;
 
     // The window we'll be rendering to
     SDL_Window* window = nullptr;
 
     // The surface contained by the window
     SDL_Surface* screenSurface = nullptr;
-    
-    // The render 
-    SDL_Renderer *renderer ;
+
+    // The render
+    SDL_Renderer* renderer;
 
     // The texture
-    SDL_Texture * texture;
+    SDL_Texture* texture;
 
     std::vector<uint32_t> buffer;
 

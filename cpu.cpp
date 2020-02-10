@@ -26,14 +26,18 @@ void CPU::clock_cycle() {
             if (opcode == 0x00E0) {
                 // CLS
                 clear_graph();
+                draw_flag = true;
+                pc += 2;
             } else if (opcode == 0x00EE) {
                 // RET
-                pc = stack[sp--];
+                // TODO: don't know why add 2
+                // and stack pointer's position
+                pc = stack[--sp];
+                // pc += 2;
             } else {
                 printf("[ERROR]Unknown code %04X\n", opcode);
                 exit(127);
             }
-            pc += 2;
             break;
         }
         case 0x1000: {
@@ -43,7 +47,9 @@ void CPU::clock_cycle() {
         }
         case 0x2000: {
             // CALL addr
-            stack[++sp] = pc;
+            // TODO: stack pointer
+            stack[sp] = pc;
+            sp++;
             pc = opcode & 0x0FFF;
             break;
         }
@@ -158,7 +164,7 @@ void CPU::clock_cycle() {
                     } else {
                         reg[0xF] = 0;
                     }
-                    reg[x] >> 1;
+                    reg[x] >>= 1;
                     pc += 2;
                     break;
                 }
@@ -180,7 +186,7 @@ void CPU::clock_cycle() {
                     } else {
                         reg[0xF] = 0;
                     }
-                    reg[x] << 1;
+                    reg[x] <<= 1;
                     pc += 2;
                     break;
                 }
@@ -216,7 +222,7 @@ void CPU::clock_cycle() {
         }
         case 0xC000: {
             // Cxkk - RND Vx, byte
-            auto rnum = rand() % 256;  // 0 ~ 255
+            auto rnum = (rand() % 256);  // 0 ~ 255
             auto x = (opcode & 0x0F00) >> 8;
             reg[x] = rnum & (opcode & 0x00FF);
             pc += 2;
@@ -226,20 +232,22 @@ void CPU::clock_cycle() {
             // Dxyn - DRW Vx, Vy, nibble
             auto x = (opcode & 0x0F00) >> 8;
             auto y = (opcode & 0x00F0) >> 4;
-            auto n = (opcode & 0x000F);
+            uint16_t n = (opcode & 0x000F);
             uint8_t pixel;
 
             reg[0xF] = 0;
-            for (uint16_t i = 0; i < n; ++i) {
+            for (int i = 0; i < n; ++i) {
                 // row or each byte
                 pixel = memory[I + i];
-                for (uint8_t b = 0; b < 8; ++b) {
-                    if (pixel & (0x80 >> b) != 0) {
+                for (int b = 0; b < 8; ++b) {
+                    if ((pixel & (0x80 >> b)) != 0) {
                         // need change
-                        if (graph[reg[x] + b][reg[y] + i] == 1) {
+                        if (graph[reg[y] + i][reg[x] + b] == 1) {
                             reg[0xF] = 1;
                         }
-                        graph[reg[x] + b][reg[y] + i] ^= 1;
+                        graph[reg[y] + i][reg[x] + b] ^= 1;
+                        printf("[DEBUG] graph : %d\n",
+                               graph[reg[y] + i][reg[x] + b]);
                     }
                 }
             }
@@ -251,14 +259,14 @@ void CPU::clock_cycle() {
             auto x = (opcode & 0x0F00) >> 8;
             if ((opcode & 0x00FF) == 0x9E) {
                 // Ex9E - SKP Vx
-                if (key[x] == 1) {
+                if (key[reg[x]] == 1) {
                     pc += 4;
                 } else {
                     pc += 2;
                 }
             } else if ((opcode & 0x00FF) == 0xA1) {
                 // ExA1 - SKNP Vx
-                if (key[x] != 1) {
+                if (key[reg[x]] != 1) {
                     pc += 4;
                 } else {
                     pc += 2;
@@ -284,12 +292,11 @@ void CPU::clock_cycle() {
                     for (uint8_t i = 0; i < 16; ++i) {
                         if (key[i] != 0) {
                             flag = true;
-                            reg[x] = key[i];
+                            reg[x] = i;
                             break;
                         }
                     }
-                    if (!flag) return;
-                    pc += 2;
+                    if (flag) pc += 2;
                     break;
                 }
                 case 0x15: {
@@ -306,6 +313,11 @@ void CPU::clock_cycle() {
                 }
                 case 0x1E: {
                     // Fx1E - ADD I, Vx
+                    if (I + reg[x] > 0xFFF) {
+                        reg[0xF] = 1;
+                    } else {
+                        reg[0xF] = 0;
+                    }
                     I += reg[x];
                     pc += 2;
                     break;
@@ -329,6 +341,7 @@ void CPU::clock_cycle() {
                     for (int i = 0; i <= x; ++i) {
                         memory[I + i] = reg[i];
                     }
+                    I = I + x + 1;
                     pc += 2;
                     break;
                 }
@@ -337,6 +350,7 @@ void CPU::clock_cycle() {
                     for (int i = 0; i <= x; ++i) {
                         reg[i] = memory[I + i];
                     }
+                    I = I + x + 1;
                     pc += 2;
                     break;
                 }
@@ -355,6 +369,7 @@ void CPU::clock_cycle() {
         }
     }
     if (delay_timer > 0) delay_timer--;
+    if (sound_timer > 0) sound_timer--;
     printf("[INFO] command %04X\n", opcode);
 }
 
@@ -367,21 +382,17 @@ bool CPU::get_draw_flag() {
 }
 
 void CPU::draw() {
+    if (!draw_flag) return;
     // update the buffer
     for (int h = 0; h < HEIGHT; ++h) {
         for (int w = 0; w < WIDTH; ++w) {
-            // sub-block
-            for (int i = 0; i < BLOCK_LONG; ++i) {
-                for (int j = 0; j < BLOCK_LONG; ++j) {
-                    buffer[h * BLOCK_LONG * WIDTH + w * BLOCK_LONG + i * WIDTH +
-                           j] = (graph[h][w]) ? 0x00FFFFFF : 0x00000000;
-                }
-            }
+            buffer[h * WIDTH + w] = (graph[h][w]) ? 0x00FFFFFF : 0x00000000;
         }
     }
     // draw on screen
     refresh();
     printf("[INFO] draw\n");
+    draw_flag = false;
 }
 
 void CPU::deal_keyboard() {
@@ -411,6 +422,8 @@ void CPU::init() {
     clear_graph();
     // stack
     for (int i = 0; i < 16; ++i) stack[i] = 0;
+    // key
+    for (int i = 0; i < 16; ++i) key[i] = 0;
 
     sp = 0;
     I = 0;
@@ -450,10 +463,9 @@ void CPU::init_sdl() {
         exit(3);
     }
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-                                SDL_TEXTUREACCESS_STATIC, WIDTH * BLOCK_LONG,
-                                HEIGHT * BLOCK_LONG);
+                                SDL_TEXTUREACCESS_STATIC, WIDTH, HEIGHT);
 
-    buffer.resize(HEIGHT * WIDTH * BLOCK_LONG * BLOCK_LONG, 0x00FFFFFF);
+    buffer.resize(HEIGHT * WIDTH, 0x00000000);
     refresh();
 }
 
@@ -477,7 +489,7 @@ void CPU::load_file() {
 
     // push into memory
     for (int i = 0; i < file_size; ++i) {
-        memory[i + 512] = a[i];
+        memory[i + 512] = (uint8_t)a[i];
     }
 
     printf("[PROCESS] init finished\n");
@@ -493,7 +505,7 @@ void CPU::clear_graph() {
 
 void CPU::refresh() {
     SDL_UpdateTexture(texture, nullptr, std::data(buffer),
-                      WIDTH * BLOCK_LONG * sizeof(uint32_t));
+                      WIDTH * sizeof(uint32_t));
     // clear the screen
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, NULL, NULL);

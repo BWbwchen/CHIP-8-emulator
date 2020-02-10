@@ -1,5 +1,3 @@
-#include <bits/stdc++.h>
-
 #include <chrono>
 #include <thread>
 
@@ -8,19 +6,17 @@
 int main() {
     // initial
     CPU t;
+    while (true) {
 
-    while (1) {
-        // 1 clock cycle
         t.clock_cycle();
-        // draw
-        if (t.get_draw_flag()) {
-            t.draw();
-        }
+
+        t.draw();
 
         // keyboard
         t.deal_keyboard();
 
         // maybe deal with the key
-        std::this_thread::sleep_for(std::chrono::milliseconds(1200));
+        //std::this_thread::sleep_for(std::chrono::microseconds(1200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(120));
     }
 }

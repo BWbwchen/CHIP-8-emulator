@@ -19,13 +19,13 @@ class CPU {
     uint8_t reg[16];            // register
     bool graph[HEIGHT][WIDTH];  // draw
     uint8_t key[16];            // keyboard
-    uint8_t sp;                 // stack pointer
-    uint8_t I;                  // index pointer
     uint8_t delay_timer;
     uint8_t sound_timer;
 
     uint16_t pc;         // program counter
     uint16_t stack[16];  // stack
+    uint16_t sp;                 // stack pointer
+    uint16_t I;          // index pointer
     uint16_t opcode;
 
     bool draw_flag;
@@ -50,7 +50,7 @@ class CPU {
     };
 
     // draw thing
-    const uint32_t BLOCK_LONG = 20;
+    const uint32_t BLOCK_LONG = 10;
     const uint32_t SCREEN_WIDTH = WIDTH * BLOCK_LONG;
     const uint32_t SCREEN_HEIGHT = HEIGHT * BLOCK_LONG;
 

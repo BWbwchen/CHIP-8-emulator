@@ -19,6 +19,7 @@ void CPU::close() {
 void CPU::clock_cycle() {
     // Fetch Opcode
     opcode = memory[pc] << 8 | memory[pc + 1];
+    printf("[INFO] command %04X\n", opcode);
     // Decode Opcode
     // Execute Opcode
     switch (opcode & 0xF000) {
@@ -33,7 +34,7 @@ void CPU::clock_cycle() {
                 // TODO: don't know why add 2
                 // and stack pointer's position
                 pc = stack[--sp];
-                // pc += 2;
+                pc += 2;
             } else {
                 printf("[ERROR]Unknown code %04X\n", opcode);
                 exit(127);
@@ -232,7 +233,7 @@ void CPU::clock_cycle() {
             // Dxyn - DRW Vx, Vy, nibble
             auto x = (opcode & 0x0F00) >> 8;
             auto y = (opcode & 0x00F0) >> 4;
-            uint16_t n = (opcode & 0x000F);
+            uint8_t n = (opcode & 0x000F);
             uint8_t pixel;
 
             reg[0xF] = 0;
@@ -240,14 +241,12 @@ void CPU::clock_cycle() {
                 // row or each byte
                 pixel = memory[I + i];
                 for (int b = 0; b < 8; ++b) {
-                    if ((pixel & (0x80 >> b)) != 0) {
+                    if ((pixel & (0x80 >> b))) {
                         // need change
                         if (graph[reg[y] + i][reg[x] + b] == 1) {
                             reg[0xF] = 1;
                         }
                         graph[reg[y] + i][reg[x] + b] ^= 1;
-                        printf("[DEBUG] graph : %d\n",
-                               graph[reg[y] + i][reg[x] + b]);
                     }
                 }
             }
@@ -370,7 +369,6 @@ void CPU::clock_cycle() {
     }
     if (delay_timer > 0) delay_timer--;
     if (sound_timer > 0) sound_timer--;
-    printf("[INFO] command %04X\n", opcode);
 }
 
 bool CPU::get_draw_flag() {
@@ -466,7 +464,6 @@ void CPU::init_sdl() {
                                 SDL_TEXTUREACCESS_STATIC, WIDTH, HEIGHT);
 
     buffer.resize(HEIGHT * WIDTH, 0x00000000);
-    refresh();
 }
 
 void CPU::load_file() {

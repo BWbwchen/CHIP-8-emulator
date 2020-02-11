@@ -7,7 +7,9 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <vector>
+#include <string>
 
 #define WIDTH 64
 #define HEIGHT 32
@@ -24,7 +26,7 @@ class CPU {
 
     uint16_t pc;         // program counter
     uint16_t stack[16];  // stack
-    uint16_t sp;                 // stack pointer
+    uint16_t sp;         // stack pointer
     uint16_t I;          // index pointer
     uint16_t opcode;
 
@@ -49,6 +51,10 @@ class CPU {
         0xF0, 0x80, 0xF0, 0x80, 0x80   // F
     };
 
+    const uint8_t keymap[16] = {SDLK_x, SDLK_1, SDLK_2, SDLK_3, SDLK_q, SDLK_w,
+                                SDLK_e, SDLK_a, SDLK_s, SDLK_d, SDLK_z, SDLK_c,
+                                SDLK_4, SDLK_r, SDLK_f, SDLK_v};
+
     // draw thing
     const uint32_t BLOCK_LONG = 10;
     const uint32_t SCREEN_WIDTH = WIDTH * BLOCK_LONG;
@@ -72,17 +78,17 @@ class CPU {
     SDL_Event e;
 
    public:
-    CPU();
+    CPU(std::string);
     void clock_cycle();
-    bool get_draw_flag();
     void draw();
-    void close();
     void deal_keyboard();
 
    private:
     void init();
     void init_sdl();
-    void load_file();
+    void close();
+    void load_file(std::string);
     void clear_graph();
     void refresh();
+    void message(std::string, uint16_t , std::string);
 };

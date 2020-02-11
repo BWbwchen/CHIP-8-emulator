@@ -1,10 +1,10 @@
 #include "cpu.hpp"
 
 // public
-CPU::CPU() {
+CPU::CPU(std::string filename) {
     init();
     init_sdl();
-    load_file();
+    load_file(filename);
 }
 
 void CPU::close() {
@@ -19,7 +19,7 @@ void CPU::close() {
 void CPU::clock_cycle() {
     // Fetch Opcode
     opcode = memory[pc] << 8 | memory[pc + 1];
-    printf("[INFO] command %04X\n", opcode);
+    message("INFO", opcode, "");
     // Decode Opcode
     // Execute Opcode
     switch (opcode & 0xF000) {
@@ -36,7 +36,7 @@ void CPU::clock_cycle() {
                 pc = stack[--sp];
                 pc += 2;
             } else {
-                printf("[ERROR]Unknown code %04X\n", opcode);
+                message("ERROR", opcode, "Unknown code");
                 exit(127);
             }
             break;
@@ -192,7 +192,7 @@ void CPU::clock_cycle() {
                     break;
                 }
                 default: {
-                    printf("[ERROR]Unknown code %04X\n", opcode);
+                    message("ERROR", opcode, "Unknown code");
                     exit(127);
                     break;
                 }
@@ -271,7 +271,7 @@ void CPU::clock_cycle() {
                     pc += 2;
                 }
             } else {
-                printf("[ERROR]Unknown code %04X\n", opcode);
+                message("ERROR", opcode, "Unknown code");
                 exit(127);
             }
             break;
@@ -354,7 +354,7 @@ void CPU::clock_cycle() {
                     break;
                 }
                 default: {
-                    printf("[ERROR]Unknown code %04X\n", opcode);
+                    message("ERROR", opcode, "Unknown code");
                     exit(127);
                     break;
                 }
@@ -362,21 +362,13 @@ void CPU::clock_cycle() {
             break;
         }
         default: {
-            printf("[ERROR]Unknown code %04X\n", opcode);
+            message("ERROR", opcode, "Unknown code");
             exit(127);
             break;
         }
     }
     if (delay_timer > 0) delay_timer--;
     if (sound_timer > 0) sound_timer--;
-}
-
-bool CPU::get_draw_flag() {
-    if (draw_flag) {
-        draw_flag = false;
-        return true;
-    }
-    return false;
 }
 
 void CPU::draw() {
@@ -389,7 +381,7 @@ void CPU::draw() {
     }
     // draw on screen
     refresh();
-    printf("[INFO] draw\n");
+    message("INFO", 1, "draw");
     draw_flag = false;
 }
 
@@ -399,12 +391,13 @@ void CPU::deal_keyboard() {
             close();
             return;
         } else if (e.type == SDL_KEYDOWN) {
-            switch (e.key.keysym.sym) {
-                default: {
-                    printf("[DEBUG] key press %d\n", e.key.keysym.sym);
-                    break;
+            for (int i = 0; i < 16; ++i) {
+                if (e.key.keysym.sym == keymap[i]) {
+                    key[i] = 1;
                 }
             }
+        } else if (e.type == SDL_KEYUP) {
+            for (int i = 0; i < 16; ++i) key[i] = 0;
         }
     }
 }
@@ -439,8 +432,7 @@ void CPU::init() {
 void CPU::init_sdl() {
     // Initialize SDL
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        printf("[ERROR] SDL could not initialize! SDL_Error: %s\n",
-               SDL_GetError());
+        message("ERROR", 1, "SDL could not initialize! SDL_Error:");
         exit(3);
     }
     // Create window
@@ -448,15 +440,14 @@ void CPU::init_sdl() {
                               SDL_WINDOWPOS_UNDEFINED, WIDTH * BLOCK_LONG,
                               HEIGHT * BLOCK_LONG, SDL_WINDOW_SHOWN);
     if (window == nullptr) {
-        printf("[ERROR] Window could not be created! SDL_Error: %s\n",
-               SDL_GetError());
+        message("ERROR", 1, "Window could not be created! SDL_Error:");
         exit(3);
     }
     renderer = SDL_CreateRenderer(
         window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (renderer == nullptr) {
         SDL_DestroyWindow(window);
-        printf("[ERROR] SDL_CreateRenderer Error: %s\n", SDL_GetError());
+        message("ERROR", 1, "SDL_CreateRenderer Error");
         SDL_Quit();
         exit(3);
     }
@@ -466,7 +457,11 @@ void CPU::init_sdl() {
     buffer.resize(HEIGHT * WIDTH, 0x00000000);
 }
 
-void CPU::load_file() {
+void CPU::load_file(std::string filename) {
+    if (filename == "") {
+        message("ERROR", 1, "Usage: ./(executeable) (filename)");
+        exit(130);
+    }
     // load font
     for (int i = 0; i < 80; ++i) {
         memory[i] = font_set[i];
@@ -475,11 +470,16 @@ void CPU::load_file() {
     // load game file
     // TODO : can do better
     std::streampos file_size;
-    std::ifstream file("roms/PONG2", std::ios::binary);
+    std::ifstream file(filename, std::ios::binary);
 
     file.seekg(0, std::ios::end);
     file_size = file.tellg();
     file.seekg(0, std::ios::beg);
+    if (file_size == 0) {
+        message("ERROR", 1,
+                "Usage: ./(executeable) (filename), or check the file");
+        exit(131);
+    }
 
     std::vector<uint8_t> a(file_size);
     file.read((char*)&a[0], file_size);
@@ -489,7 +489,7 @@ void CPU::load_file() {
         memory[i + 512] = (uint8_t)a[i];
     }
 
-    printf("[PROCESS] init finished\n");
+    message("PROCESS", 1, "init finished");
 }
 
 void CPU::clear_graph() {
@@ -507,4 +507,17 @@ void CPU::refresh() {
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
+}
+
+void CPU::message(std::string type, uint16_t content,
+                  std::string str_content = "") {
+    if (str_content != "") {
+        std::cout << "[" << type << "] " << str_content << std::endl;
+    } else if (type != "ERROR") {
+        std::cout << "[" << type << "] ";
+        printf("command %04X\n", content);
+    } else {
+        std::cout << "[" << type << "] ";
+        printf("command %04X\n", content);
+    }
 }
